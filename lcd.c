@@ -17,7 +17,6 @@
 int main(int argc, char **argv)
 {
     int ret;
-    int value;
     int fd;
 
     char clr[] = {0x80};
