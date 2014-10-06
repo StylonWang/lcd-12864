@@ -58,7 +58,7 @@ void vertical_line_draw_lcd(void)
 }
 
 // MzLH04 has an internal buffer of 400 bytes but no busy flag.
-// Break up the writes and put some delay.
+// Break up the writes and put some delay to avoid overflowing the buffer.
 ssize_t buffer_write(int fd, const void *buf, size_t count)
 {
     ssize_t total = 0;
@@ -137,7 +137,7 @@ int main(int argc, char **argv)
     uint8_t bits = 8;
     uint32_t speed = 500000;
     int i;
-    int count=0;
+    int count=0, total_count=0;
     struct timeval tv1, tv2;
 
     srand(time(NULL));
@@ -202,6 +202,7 @@ int main(int argc, char **argv)
 
     while(1) {
         count++;
+        total_count++;
 
         switch(count%3) {
 
@@ -223,7 +224,7 @@ int main(int argc, char **argv)
         }
 
         // get FPS
-        if(count>100) {
+        if(count>=100) {
             unsigned long milisec;
 
             gettimeofday(&tv2, NULL);
@@ -235,7 +236,10 @@ int main(int argc, char **argv)
                 milisec -= 1000;
                 milisec += (tv2.tv_usec/1000)+1000 - (tv1.tv_usec)/1000;
             }
-            printf("FPS: %2.2f\n", (float)count/(milisec+1)*1000);
+            printf("FPS: %2.2f, %d frames passed\n", 
+                    (float)count/(milisec+1)*1000,
+                    total_count
+                    );
 
             count = 0;
             gettimeofday(&tv1, NULL);
