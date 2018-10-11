@@ -14,6 +14,45 @@
 #include <sys/ioctl.h>
 #include <time.h>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+#include <net/if.h>
+#include <arpa/inet.h>
+
+void get_ip(char *ip_buf, int len)
+{
+
+    int fd;
+    struct ifreq ifr;
+    int ret;
+
+    snprintf(ip_buf, len, "999.999.999.999");
+
+    fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if(fd<0) return;
+
+    /* I want to get an IPv4 IP address */
+    ifr.ifr_addr.sa_family = AF_INET;
+
+    /* I want IP address attached to "eth0" */
+    strncpy(ifr.ifr_name, "eth0", IFNAMSIZ-1);
+
+    ret = ioctl(fd, SIOCGIFADDR, &ifr);
+    if(ret<0) {
+        close(fd);
+        return;
+    }
+
+    close(fd);
+
+    /* display result */
+    snprintf(ip_buf, len, "%s", inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
+
+    return;
+}
+
 int main(int argc, char **argv)
 {
     int ret;
@@ -37,7 +76,7 @@ int main(int argc, char **argv)
                     CMD(square),
                 };
 
-    char hello[] = "Hello, AVerMedia";
+    char hello[32] = "Hello, World!";
     ssize_t sz;
     uint8_t mode = SPI_CPHA|SPI_CPOL; // clock high active, latch on rising edge
     uint8_t bits = 8;
@@ -121,19 +160,39 @@ int main(int argc, char **argv)
         time_t tt;
         struct tm ttm;
         char buf[32];
+        char ip[16];
+
         tt = time(NULL); // get current time
         localtime_r(&tt, &ttm); // convert to localtime
-
         strftime(buf, sizeof(buf), "%m/%d %H:%M:%S", &ttm);
 
         for(i=0; i<strlen(buf); ++i) {
-            char cmd[] = { 0x07, 0, 50, 0};
+            char cmd[] = { 0x07, 0, 45, 0};
             cmd[1] = i*8;
             cmd[3] = buf[i];
             sz = write(fd, cmd, sizeof(cmd));
 
             if(sz<0) {
-                printf("write hello[%d] failed: %s\n", i, strerror(errno));
+                printf("write buf[%d] failed: %s\n", i, strerror(errno));
+                break;
+            }
+
+            usleep(1*1000); // no busy flag, 1ms might be safe
+        }
+
+        usleep(500*1000);
+
+        get_ip(ip, sizeof(ip));
+        printf("ip=%s\n", ip);
+
+        for(i=0; i<strlen(ip); ++i) {
+            char cmd[] = { 0x07, 0, 56, 0};
+            cmd[1] = i*8;
+            cmd[3] = ip[i];
+            sz = write(fd, cmd, sizeof(cmd));
+
+            if(sz<0) {
+                printf("write ip[%d] failed: %s\n", i, strerror(errno));
                 break;
             }
 
